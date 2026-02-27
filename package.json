@@ -1,0 +1,22 @@
+{
+  "name": "@honeide/core",
+  "version": "0.1.0",
+  "description": "Hone IDE headless services — workspace, git, search, AI, settings, protocols",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": ["ide", "services", "workspace", "lsp", "dap", "git", "ai"],
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.7.0"
+  }
+}
