@@ -13,3 +13,4 @@ export * from './extensions/index';
 export * from './tasks/index';
 export * from './queue/index';
 export * from './sync/index';
+export * from './telemetry/index';
