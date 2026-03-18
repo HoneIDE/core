@@ -140,6 +140,21 @@ export const BUILTIN_SCHEMA: Record<string, SettingSchema> = {
     default: false,
     description: 'When enabled, will trim trailing whitespace when saving a file.',
   },
+  'editor.insertFinalNewline': {
+    type: 'boolean',
+    default: true,
+    description: 'Insert a final newline at the end of the file when saving.',
+  },
+  'editor.trimFinalNewlines': {
+    type: 'boolean',
+    default: true,
+    description: 'Trim all trailing blank lines after the final newline when saving.',
+  },
+  'editor.formatNormalizeIndent': {
+    type: 'boolean',
+    default: false,
+    description: 'Normalize indentation (tabs to spaces or vice versa) when formatting.',
+  },
 
   // Terminal
   'terminal.integrated.fontSize': {
