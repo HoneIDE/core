@@ -44,6 +44,7 @@ export class FileWatcher {
   private _listeners: Set<FileChangeListener> = new Set();
   private _debounceMs: number;
   private _shouldIgnore: (name: string) => boolean;
+  private _maxPending: number = 10000;
 
   // Pending events accumulate during the debounce window
   private _pending: Map<string, FileChangeEvent> = new Map();
@@ -130,6 +131,12 @@ export class FileWatcher {
   private _queueEvent(event: FileChangeEvent): void {
     // Coalesce: last event for a given path wins
     this._pending.set(event.path, event);
+
+    // If we've hit the max pending limit, flush immediately
+    if (this._pending.size >= this._maxPending) {
+      this._flush();
+      return;
+    }
 
     // Reset the debounce timer
     this._clearDebounce();

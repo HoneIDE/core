@@ -52,6 +52,8 @@ export class FileIndex {
   private _pathSet: Set<string> = new Set();
   /** Cache of lowercased paths for case-insensitive matching. */
   private _lowerPaths: string[] = [];
+  /** Map from path to index in _paths/_lowerPaths for O(1) removal. */
+  private _pathToIndex: Map<string, number> = new Map();
 
   // -----------------------------------------------------------------------
   // Index management
@@ -65,6 +67,10 @@ export class FileIndex {
     this._paths = paths.slice();
     this._pathSet = new Set(paths);
     this._lowerPaths = paths.map(p => p.toLowerCase());
+    this._pathToIndex = new Map();
+    for (let i = 0; i < this._paths.length; i++) {
+      this._pathToIndex.set(this._paths[i], i);
+    }
   }
 
   /**
@@ -72,6 +78,7 @@ export class FileIndex {
    */
   addFile(path: string): void {
     if (this._pathSet.has(path)) return;
+    this._pathToIndex.set(path, this._paths.length);
     this._paths.push(path);
     this._pathSet.add(path);
     this._lowerPaths.push(path.toLowerCase());
@@ -83,11 +90,20 @@ export class FileIndex {
   removeFile(path: string): void {
     if (!this._pathSet.has(path)) return;
     this._pathSet.delete(path);
-    const idx = this._paths.indexOf(path);
-    if (idx !== -1) {
-      this._paths.splice(idx, 1);
-      this._lowerPaths.splice(idx, 1);
+    const idx = this._pathToIndex.get(path);
+    if (idx === undefined) return;
+    this._pathToIndex.delete(path);
+
+    const lastIdx = this._paths.length - 1;
+    if (idx !== lastIdx) {
+      // Swap with last element
+      const lastPath = this._paths[lastIdx];
+      this._paths[idx] = lastPath;
+      this._lowerPaths[idx] = this._lowerPaths[lastIdx];
+      this._pathToIndex.set(lastPath, idx);
     }
+    this._paths.pop();
+    this._lowerPaths.pop();
   }
 
   /**
@@ -111,6 +127,7 @@ export class FileIndex {
     this._paths = [];
     this._pathSet.clear();
     this._lowerPaths = [];
+    this._pathToIndex.clear();
   }
 
   // -----------------------------------------------------------------------

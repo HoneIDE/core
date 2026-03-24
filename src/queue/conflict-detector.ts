@@ -59,7 +59,9 @@ export function detectConflict(
   // we try to apply the patch and see if it succeeds.
   // If it does, the regions don't overlap and we mark as resolved.
   if (currentContent !== null) {
-    const canApply = tryApplyHunks(currentContent, proposedHunks);
+    // Pre-sort hunks descending by oldStart (required by tryApplyHunks)
+    const sorted = proposedHunks.slice().sort((a, b) => b.oldStart - a.oldStart);
+    const canApply = tryApplyHunks(currentContent, sorted);
     if (canApply) {
       return { state: 'resolved', updatedDiff: diff };
     }
@@ -101,10 +103,9 @@ function formatRanges(ranges: LineRange[]): string {
 
 function tryApplyHunks(content: string, hunks: DiffHunk[]): boolean {
   const lines = content.split('\n');
-  const sortedHunks = hunks.slice().sort((a, b) => b.oldStart - a.oldStart);
 
-  for (let h = 0; h < sortedHunks.length; h++) {
-    const hunk = sortedHunks[h];
+  for (let h = 0; h < hunks.length; h++) {
+    const hunk = hunks[h];
     const startIdx = hunk.oldStart - 1;
 
     const oldLines: string[] = [];
