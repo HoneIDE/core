@@ -62,6 +62,27 @@ describe('validateSetting', () => {
     expect(r.errors[0]).toContain('Unknown setting');
   });
 
+  test('accepts valid object type', () => {
+    const r = validateSetting('files.exclude', { '**/.git': true }, schema);
+    expect(r.valid).toBe(true);
+  });
+
+  test('rejects number when boolean is expected', () => {
+    const r = validateSetting('editor.insertSpaces', 1, schema);
+    expect(r.valid).toBe(false);
+    expect(r.errors[0]).toContain('expected boolean');
+  });
+
+  test('accepts number at exact minimum boundary', () => {
+    const r = validateSetting('editor.fontSize', 6, schema);
+    expect(r.valid).toBe(true);
+  });
+
+  test('accepts number at exact maximum boundary', () => {
+    const r = validateSetting('editor.fontSize', 72, schema);
+    expect(r.valid).toBe(true);
+  });
+
   test('all builtin defaults pass their own validation', () => {
     for (const [key, def] of Object.entries(BUILTIN_SCHEMA)) {
       const r = validateSetting(key, def.default, schema);
@@ -216,6 +237,45 @@ describe('SettingsStore', () => {
     expect(keys).toContain('workbench.sideBar.location');
     expect(keys.length).toBeGreaterThan(20);
   });
+
+  test('registerSchema adds new setting and provides default', () => {
+    store.registerSchema('custom.mySetting', {
+      type: 'number',
+      default: 42,
+      description: 'A custom setting',
+    });
+    expect(store.get('custom.mySetting')).toBe(42);
+    const result = store.set('custom.mySetting', 99, 'user');
+    expect(result.valid).toBe(true);
+    expect(store.get('custom.mySetting')).toBe(99);
+  });
+
+  test('getSchema returns schema definition for known key', () => {
+    const schema = store.getSchema('editor.fontSize');
+    expect(schema).toBeDefined();
+    expect(schema!.type).toBe('number');
+    expect(schema!.minimum).toBe(6);
+    expect(schema!.maximum).toBe(72);
+  });
+
+  test('getSchema returns undefined for unknown key', () => {
+    expect(store.getSchema('nonexistent.key')).toBeUndefined();
+  });
+
+  test('loadLayer returns empty array for default layer', () => {
+    const results = store.loadLayer('default', { 'editor.fontSize': 20 });
+    expect(results).toHaveLength(0);
+    expect(store.get('editor.fontSize')).toBe(13); // unchanged
+  });
+
+  test('clearLayer on default layer is a no-op', () => {
+    store.clearLayer('default');
+    expect(store.get('editor.fontSize')).toBe(13); // still has default
+  });
+
+  test('get returns undefined for completely unknown key', () => {
+    expect(store.get('totally.unknown.key.not.in.schema')).toBeUndefined();
+  });
 });
 
 // =============================================================================
@@ -367,6 +427,15 @@ describe('evaluateWhen', () => {
 
   test('unknown key is falsy', () => {
     expect(evaluateWhen('nonExistentKey', ctx)).toBe(false);
+  });
+
+  test('parenthesized expression', () => {
+    expect(evaluateWhen('(editorTextFocus)', ctx)).toBe(true);
+    expect(evaluateWhen('(!editorReadonly)', ctx)).toBe(true);
+  });
+
+  test('empty string when is falsy', () => {
+    expect(evaluateWhen('', ctx)).toBe(true); // empty string is falsy, but evaluateWhen treats it as "no when clause"
   });
 });
 

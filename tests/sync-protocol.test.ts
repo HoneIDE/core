@@ -1,7 +1,15 @@
 import { describe, test, expect } from 'bun:test';
 import { createEnvelope, parseEnvelope, validateEnvelope } from '../src/sync/protocol';
-import { generatePairingCode, validatePairingCode, normalizePairingCode } from '../src/sync/pairing';
+import {
+  generatePairingCode, validatePairingCode, normalizePairingCode,
+  generateRoomId, buildPairingUrl, parsePairingUrl, getDefaultRelayUrl,
+} from '../src/sync/pairing';
 import { createDeviceToken, parseDeviceToken } from '../src/sync/device-token';
+import {
+  serializeConnection, parseConnection,
+  serializeConnections, parseConnections,
+  type StoredConnection,
+} from '../src/sync/connection-store';
 
 // --- Envelope ---
 
@@ -183,5 +191,160 @@ describe('DeviceToken', () => {
     // Tamper: change first char of payload
     const tampered = 'X' + token.slice(1);
     expect(parseDeviceToken(tampered, secret)).toBeNull();
+  });
+});
+
+// --- Room ID ---
+
+describe('generateRoomId', () => {
+  test('generates UUID-like format', () => {
+    const id = generateRoomId();
+    expect(id.length).toBe(36); // 8-4-4-4-12
+    expect(id[8]).toBe('-');
+    expect(id[13]).toBe('-');
+    expect(id[18]).toBe('-');
+    expect(id[23]).toBe('-');
+  });
+
+  test('uses hex characters only', () => {
+    const id = generateRoomId();
+    const stripped = id.replace(/-/g, '');
+    expect(/^[0-9a-f]+$/.test(stripped)).toBe(true);
+  });
+
+  test('generates unique IDs', () => {
+    const ids = new Set<string>();
+    for (let i = 0; i < 50; i++) {
+      ids.add(generateRoomId());
+    }
+    expect(ids.size).toBe(50);
+  });
+});
+
+// --- Pairing URL ---
+
+describe('PairingUrl', () => {
+  test('buildPairingUrl creates valid URL', () => {
+    const url = buildPairingUrl('wss://sync.hone.codes/ws', 'room-123', 'ABC123');
+    expect(url).toContain('hone://pair?');
+    expect(url).toContain('relay=');
+    expect(url).toContain('room=');
+    expect(url).toContain('code=ABC123');
+  });
+
+  test('buildPairingUrl with public key', () => {
+    const url = buildPairingUrl('wss://relay.example.com', 'room-1', 'XYZ789', 'deadbeef');
+    expect(url).toContain('pk=deadbeef');
+  });
+
+  test('buildPairingUrl without public key', () => {
+    const url = buildPairingUrl('wss://relay.example.com', 'room-1', 'XYZ789');
+    expect(url).not.toContain('pk=');
+  });
+
+  test('parsePairingUrl roundtrip', () => {
+    const url = buildPairingUrl('wss://sync.hone.codes/ws', 'room-abc', 'CODE42', 'pk123');
+    const parsed = parsePairingUrl(url);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.relay).toBe('wss://sync.hone.codes/ws');
+    expect(parsed!.room).toBe('room-abc');
+    expect(parsed!.code).toBe('CODE42');
+    expect(parsed!.pk).toBe('pk123');
+  });
+
+  test('parsePairingUrl without pk', () => {
+    const url = buildPairingUrl('wss://relay.test', 'room-1', 'ABCDEF');
+    const parsed = parsePairingUrl(url);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.pk).toBe('');
+  });
+
+  test('parsePairingUrl rejects invalid prefix', () => {
+    expect(parsePairingUrl('https://example.com')).toBeNull();
+    expect(parsePairingUrl('')).toBeNull();
+  });
+
+  test('parsePairingUrl rejects missing required fields', () => {
+    expect(parsePairingUrl('hone://pair?relay=x')).toBeNull();
+    expect(parsePairingUrl('hone://pair?relay=x&room=y')).toBeNull();
+  });
+
+  test('handles URL-encoded relay', () => {
+    const url = buildPairingUrl('wss://sync.hone.codes/ws', 'room-1', 'ABC123');
+    const parsed = parsePairingUrl(url);
+    expect(parsed!.relay).toBe('wss://sync.hone.codes/ws');
+  });
+
+  test('getDefaultRelayUrl returns expected value', () => {
+    expect(getDefaultRelayUrl()).toBe('wss://sync.hone.codes/ws');
+  });
+});
+
+// --- Connection Store ---
+
+describe('ConnectionStore', () => {
+  const conn: StoredConnection = {
+    relayUrl: 'wss://sync.hone.codes/ws',
+    roomId: 'room-abc-123',
+    deviceToken: 'eyJkZXZpY2VJZCI6ImRldjEifQ.abc123',
+    hostDeviceId: 'host-1',
+    hostName: 'My Mac',
+    deviceId: 'guest-1',
+    deviceName: 'My iPhone',
+    pairedAt: 1700000000000,
+  };
+
+  test('serializeConnection produces key=value format', () => {
+    const text = serializeConnection(conn);
+    expect(text).toContain('relayUrl=wss://sync.hone.codes/ws\n');
+    expect(text).toContain('roomId=room-abc-123\n');
+    expect(text).toContain('deviceToken=eyJkZXZpY2VJZCI6ImRldjEifQ.abc123\n');
+    expect(text).toContain('hostName=My Mac\n');
+    expect(text).toContain('pairedAt=1700000000000\n');
+  });
+
+  test('parseConnection roundtrip', () => {
+    const text = serializeConnection(conn);
+    const parsed = parseConnection(text);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.relayUrl).toBe(conn.relayUrl);
+    expect(parsed!.roomId).toBe(conn.roomId);
+    expect(parsed!.deviceToken).toBe(conn.deviceToken);
+    expect(parsed!.hostDeviceId).toBe(conn.hostDeviceId);
+    expect(parsed!.hostName).toBe(conn.hostName);
+    expect(parsed!.deviceId).toBe(conn.deviceId);
+    expect(parsed!.deviceName).toBe(conn.deviceName);
+    expect(parsed!.pairedAt).toBe(conn.pairedAt);
+  });
+
+  test('parseConnection returns null for empty text', () => {
+    expect(parseConnection('')).toBeNull();
+  });
+
+  test('parseConnection returns null for missing required fields', () => {
+    expect(parseConnection('relayUrl=x\n')).toBeNull();
+    expect(parseConnection('relayUrl=x\nroomId=y\n')).toBeNull();
+  });
+
+  test('serializeConnections multiple', () => {
+    const conn2: StoredConnection = { ...conn, roomId: 'room-2', hostName: 'Other Mac' };
+    const text = serializeConnections([conn, conn2]);
+    expect(text).toContain('[connection]');
+    expect(text).toContain('room-abc-123');
+    expect(text).toContain('room-2');
+  });
+
+  test('parseConnections roundtrip', () => {
+    const conn2: StoredConnection = { ...conn, roomId: 'room-2', deviceName: 'iPad' };
+    const text = serializeConnections([conn, conn2]);
+    const parsed = parseConnections(text);
+    expect(parsed.length).toBe(2);
+    expect(parsed[0].roomId).toBe('room-abc-123');
+    expect(parsed[1].roomId).toBe('room-2');
+    expect(parsed[1].deviceName).toBe('iPad');
+  });
+
+  test('parseConnections handles empty text', () => {
+    expect(parseConnections('').length).toBe(0);
   });
 });

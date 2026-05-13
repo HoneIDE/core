@@ -12,3 +12,4 @@ export * from './handlers/files-handler';
 export * from './handlers/editor-handler';
 export * from './handlers/ai-handler';
 export * from './handlers/build-handler';
+export * from './connection-store';
