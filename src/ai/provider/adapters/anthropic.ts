@@ -12,8 +12,9 @@ export class AnthropicAdapter implements AIProviderAdapter {
 
   listModels(): AIModelInfo[] {
     return [
-      { id: 'claude-opus-4-6', name: 'Claude Opus 4.6', contextWindow: 200000, supportsTools: true, supportsStreaming: true, supportsVision: true },
-      { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', contextWindow: 200000, supportsTools: true, supportsStreaming: true, supportsVision: true },
+      { id: 'claude-fable-5', name: 'Claude Fable 5', contextWindow: 200000, supportsTools: true, supportsStreaming: true, supportsVision: true },
+      { id: 'claude-opus-4-8', name: 'Claude Opus 4.8', contextWindow: 200000, supportsTools: true, supportsStreaming: true, supportsVision: true },
+      { id: 'claude-sonnet-5', name: 'Claude Sonnet 5', contextWindow: 200000, supportsTools: true, supportsStreaming: true, supportsVision: true },
       { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5', contextWindow: 200000, supportsTools: true, supportsStreaming: true, supportsVision: true },
     ];
   }

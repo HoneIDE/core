@@ -11,6 +11,7 @@ export class OpenAIAdapter implements AIProviderAdapter {
   readonly name = 'OpenAI';
 
   listModels(): AIModelInfo[] {
+    // TODO(verify): confirm current OpenAI model ids and context windows.
     return [
       { id: 'gpt-4o', name: 'GPT-4o', contextWindow: 128000, supportsTools: true, supportsStreaming: true, supportsVision: true },
       { id: 'gpt-4o-mini', name: 'GPT-4o Mini', contextWindow: 128000, supportsTools: true, supportsStreaming: true, supportsVision: true },

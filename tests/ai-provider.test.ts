@@ -490,14 +490,13 @@ describe('BedrockAdapter', () => {
     expect(adapter.name).toBe('AWS Bedrock');
   });
 
-  test('buildRequest URL includes model path', () => {
+  test('buildRequest fails loudly until SigV4 signing is implemented', () => {
     const req: AICompletionRequest = {
       messages: [{ role: 'user', content: 'Hello' }],
       model: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
     };
-    const result = adapter.buildRequest(req, config);
-    expect(result.url).toContain('/model/anthropic.claude-3-5-sonnet-20241022-v2:0/invoke');
-    expect(result.url).toContain('us-west-2');
+    // The adapter must not ship a request with a placeholder signature.
+    expect(() => adapter.buildRequest(req, config)).toThrow('SigV4');
   });
 
   test('listModels returns bedrock models', () => {
@@ -553,7 +552,7 @@ describe('AzureOpenAIAdapter', () => {
     };
     const result = adapter.buildRequest(req, config);
     expect(result.url).toContain('/openai/deployments/gpt4o-deploy/chat/completions');
-    expect(result.url).toContain('api-version=2024-06-01');
+    expect(result.url).toContain('api-version=2024-10-21');
   });
 
   test('buildRequest uses api-key header', () => {

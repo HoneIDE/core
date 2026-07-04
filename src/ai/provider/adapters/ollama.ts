@@ -11,6 +11,8 @@ export class OllamaAdapter implements AIProviderAdapter {
   readonly name = 'Ollama';
 
   listModels(): AIModelInfo[] {
+    // Example models only — Ollama serves whatever the user has pulled locally.
+    // Users should configure their own model id (tags like `:latest` float).
     return [
       { id: 'llama3:8b', name: 'Llama 3 8B', contextWindow: 8192, supportsTools: false, supportsStreaming: true, supportsVision: false },
       { id: 'codellama:34b', name: 'Code Llama 34B', contextWindow: 16384, supportsTools: false, supportsStreaming: true, supportsVision: false },

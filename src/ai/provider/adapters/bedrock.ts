@@ -12,13 +12,29 @@ export class BedrockAdapter implements AIProviderAdapter {
 
   listModels(): AIModelInfo[] {
     return [
+      // TODO(verify): confirm current Bedrock model id — id format is
+      // `anthropic.claude-<name>-<date>-v<n>:0`; this one is likely stale.
       { id: 'anthropic.claude-3-5-sonnet-20241022-v2:0', name: 'Claude 3.5 Sonnet v2 (Bedrock)', contextWindow: 200000, supportsTools: true, supportsStreaming: true, supportsVision: true },
+      // TODO(verify): confirm current Bedrock Llama model id.
       { id: 'meta.llama3-1-70b-instruct-v1:0', name: 'Llama 3.1 70B (Bedrock)', contextWindow: 128000, supportsTools: false, supportsStreaming: true, supportsVision: false },
     ];
   }
 
   private isClaudeModel(model: string): boolean {
     return model.startsWith('anthropic.');
+  }
+
+  /**
+   * Build the AWS SigV4 Authorization header for a Bedrock request.
+   *
+   * Not implemented: full SigV4 signing (canonical request, string-to-sign,
+   * HMAC signing key derivation) is non-trivial and out of scope here. The
+   * previous implementation shipped a placeholder `Signature=TODO`, which
+   * silently fails auth (HTTP 403). Fail loudly instead of sending a broken
+   * request so callers front a signed endpoint / proxy or implement signing.
+   */
+  private signSigV4(_region: string): never {
+    throw new Error('Bedrock adapter: AWS SigV4 signing not implemented — use a signed endpoint or implement signSigV4()');
   }
 
   buildRequest(req: AICompletionRequest, config: AIProviderConfig) {
@@ -65,10 +81,11 @@ export class BedrockAdapter implements AIProviderAdapter {
       if (req.temperature !== undefined) bodyObj.temperature = req.temperature;
     }
 
-    // Build AWS SigV4 Authorization header shape (actual signing is a TODO)
+    // AWS SigV4 signing is not implemented — this throws rather than shipping a
+    // request with a placeholder signature that would silently 403.
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'Authorization': `AWS4-HMAC-SHA256 Credential=${config.apiKey ?? 'ACCESS_KEY'}/${new Date().toISOString().slice(0, 10).replace(/-/g, '')}/${region}/bedrock/aws4_request, SignedHeaders=content-type;host, Signature=TODO`,
+      'Authorization': this.signSigV4(region),
     };
 
     return {
@@ -155,7 +172,7 @@ export class BedrockAdapter implements AIProviderAdapter {
       method: 'GET',
       url: `${baseUrl}/foundation-models`,
       headers: {
-        'Authorization': `AWS4-HMAC-SHA256 Credential=${config.apiKey ?? 'ACCESS_KEY'}/TODO`,
+        'Authorization': this.signSigV4(region),
       },
     };
   }

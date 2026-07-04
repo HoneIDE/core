@@ -20,7 +20,8 @@ export class AzureOpenAIAdapter implements AIProviderAdapter {
   buildRequest(req: AICompletionRequest, config: AIProviderConfig) {
     const baseUrl = config.baseUrl ?? 'https://my-resource.openai.azure.com';
     const deploymentId = config.deploymentId ?? req.model;
-    const url = `${baseUrl}/openai/deployments/${deploymentId}/chat/completions?api-version=2024-06-01`;
+    // TODO(verify): confirm current Azure OpenAI GA api-version.
+    const url = `${baseUrl}/openai/deployments/${deploymentId}/chat/completions?api-version=2024-10-21`;
 
     const messages = req.messages.map(m => ({ role: m.role, content: m.content }));
 
@@ -114,7 +115,8 @@ export class AzureOpenAIAdapter implements AIProviderAdapter {
     const deploymentId = config.deploymentId ?? 'gpt-4o';
     return {
       method: 'POST',
-      url: `${baseUrl}/openai/deployments/${deploymentId}/chat/completions?api-version=2024-06-01`,
+      // TODO(verify): confirm current Azure OpenAI GA api-version.
+      url: `${baseUrl}/openai/deployments/${deploymentId}/chat/completions?api-version=2024-10-21`,
       headers: {
         'Content-Type': 'application/json',
         'api-key': config.apiKey ?? '',

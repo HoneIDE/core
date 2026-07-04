@@ -1,7 +1,7 @@
 /**
  * Built-in document formatting rules.
  *
- * Pure TypeScript, Perry-safe (no regex). Operates on full file content string.
+ * Pure TypeScript. Operates on full file content string.
  * Each rule is independently toggleable via FormattingOptions.
  */
 
@@ -36,7 +36,7 @@ export function defaultFormattingOptions(): FormattingOptions {
 /**
  * Format a document according to the given options.
  *
- * Implementation: splits by newline (charCodeAt loop), processes each line, rejoins.
+ * Implementation: splits by newline, processes each line, rejoins.
  */
 export function formatDocument(content: string, options: FormattingOptions): FormattingResult {
   if (content.length === 0) {
@@ -46,73 +46,44 @@ export function formatDocument(content: string, options: FormattingOptions): For
     return { formatted: '', changed: false };
   }
 
-  // Split content into lines by scanning for \n (charCode 10)
-  const lines: string[] = [];
-  let lineStart = 0;
-  for (let i = 0; i <= content.length; i++) {
-    if (i === content.length || content.charCodeAt(i) === 10) {
-      lines.push(content.slice(lineStart, i));
-      lineStart = i + 1;
-    }
-  }
+  let lines = content.split('\n');
 
-  // Process each line
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i];
+  // Process each line: trim trailing whitespace, normalize indentation.
+  lines = lines.map(line => {
+    let out = line;
+    if (options.trimTrailingWhitespace) out = trimTrailing(out);
+    if (options.normalizeIndentation) out = normalizeLineIndent(out, options.tabSize, options.insertSpaces);
+    return out;
+  });
 
-    // Trim trailing whitespace
-    if (options.trimTrailingWhitespace) {
-      line = trimTrailing(line);
-    }
-
-    // Normalize indentation (tabs↔spaces)
-    if (options.normalizeIndentation) {
-      line = normalizeLineIndent(line, options.tabSize, options.insertSpaces);
-    }
-
-    lines[i] = line;
-  }
-
-  // Trim final newlines: remove trailing empty lines, keep at most one
+  // Trim final newlines: remove trailing empty lines, keep at most one.
   if (options.trimFinalNewlines) {
     while (lines.length > 1 && lines[lines.length - 1].length === 0) {
       lines.pop();
     }
   }
 
-  // Max consecutive blank lines
+  // Max consecutive blank lines.
   if (options.maxConsecutiveBlankLines > 0) {
     const result: string[] = [];
     let blankCount = 0;
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].length === 0) {
+    for (const line of lines) {
+      if (line.length === 0) {
         blankCount++;
-        if (blankCount <= options.maxConsecutiveBlankLines) {
-          result.push(lines[i]);
-        }
+        if (blankCount <= options.maxConsecutiveBlankLines) result.push(line);
       } else {
         blankCount = 0;
-        result.push(lines[i]);
+        result.push(line);
       }
     }
-    lines.length = 0;
-    for (let i = 0; i < result.length; i++) {
-      lines.push(result[i]);
-    }
+    lines = result;
   }
 
-  // Rejoin
-  let formatted = '';
-  for (let i = 0; i < lines.length; i++) {
-    if (i > 0) formatted += '\n';
-    formatted += lines[i];
-  }
+  let formatted = lines.join('\n');
 
-  // Insert final newline
-  if (options.insertFinalNewline) {
-    if (formatted.length === 0 || formatted.charCodeAt(formatted.length - 1) !== 10) {
-      formatted += '\n';
-    }
+  // Insert final newline.
+  if (options.insertFinalNewline && !formatted.endsWith('\n')) {
+    formatted += '\n';
   }
 
   return {
@@ -126,83 +97,36 @@ export function formatDocument(content: string, options: FormattingOptions): For
  * Useful for the independent "trim trailing whitespace on save" setting.
  */
 export function trimTrailingWhitespaceOnly(content: string): string {
-  const lines: string[] = [];
-  let lineStart = 0;
-  for (let i = 0; i <= content.length; i++) {
-    if (i === content.length || content.charCodeAt(i) === 10) {
-      lines.push(trimTrailing(content.slice(lineStart, i)));
-      lineStart = i + 1;
-    }
-  }
-  let result = '';
-  for (let i = 0; i < lines.length; i++) {
-    if (i > 0) result += '\n';
-    result += lines[i];
-  }
-  return result;
+  return content.split('\n').map(trimTrailing).join('\n');
 }
 
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-/** Remove trailing spaces (32) and tabs (9) from a line. */
+/** Remove trailing spaces and tabs from a line. */
 function trimTrailing(line: string): string {
-  let end = line.length;
-  while (end > 0) {
-    const ch = line.charCodeAt(end - 1);
-    if (ch === 32 || ch === 9) {
-      end--;
-    } else {
-      break;
-    }
-  }
-  if (end === line.length) return line;
-  return line.slice(0, end);
+  return line.replace(/[ \t]+$/, '');
 }
 
 /** Normalize a line's leading indentation: tabs→spaces or spaces→tabs. */
 function normalizeLineIndent(line: string, tabSize: number, insertSpaces: boolean): string {
-  if (line.length === 0) return line;
+  const leading = line.match(/^[ \t]*/)![0];
+  if (leading.length === 0) return line; // No leading whitespace
 
-  // Count leading whitespace and compute indent level
+  // Compute total space-equivalent width (each tab counts as tabSize spaces).
   let spaces = 0;
-  let idx = 0;
-  while (idx < line.length) {
-    const ch = line.charCodeAt(idx);
-    if (ch === 32) {
-      spaces++;
-      idx++;
-    } else if (ch === 9) {
-      spaces += tabSize;
-      idx++;
-    } else {
-      break;
-    }
+  for (const ch of leading) {
+    spaces += ch === '\t' ? tabSize : 1;
   }
 
-  if (idx === 0) return line; // No leading whitespace
-
-  const rest = line.slice(idx);
+  const rest = line.slice(leading.length);
 
   if (insertSpaces) {
-    // Convert to spaces
-    let indent = '';
-    for (let i = 0; i < spaces; i++) {
-      indent += ' ';
-    }
-    return indent + rest;
-  } else {
-    // Convert to tabs + remainder spaces
-    const tabs = (spaces / tabSize) | 0;
-    const remainder = spaces - tabs * tabSize;
-    let indent = '';
-    for (let i = 0; i < tabs; i++) {
-      indent += '\t';
-    }
-    for (let i = 0; i < remainder; i++) {
-      indent += ' ';
-    }
-    return indent + rest;
+    return ' '.repeat(spaces) + rest;
   }
+  // Convert to tabs + remainder spaces.
+  const tabs = Math.floor(spaces / tabSize);
+  const remainder = spaces - tabs * tabSize;
+  return '\t'.repeat(tabs) + ' '.repeat(remainder) + rest;
 }

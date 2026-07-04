@@ -73,8 +73,9 @@ export class WebCryptoProvider implements CryptoProvider {
 
   deriveSharedKey(mySecret: string, theirPublic: string): string {
     // HMAC-SHA256 of the concatenation
-    // NOTE: This is NOT commutative like real X25519 DH. In production,
-    // PerryCryptoProvider uses real X25519 where DH(secA, pubB) == DH(secB, pubA).
+    // NOTE: This is NOT commutative like real X25519 DH. In production, the
+    // real crypto seam (hone-ide sync-host) uses X25519 where
+    // DH(secA, pubB) == DH(secB, pubA).
     // For WebCrypto fallback, callers must exchange the derived shared key out-of-band
     // or use a symmetric pre-shared key.
     return hmacSha256Hex(mySecret, theirPublic);
@@ -286,32 +287,9 @@ function writeU32BE(buf: Uint8Array, off: number, val: number): void {
   buf[off + 3] = val & 0xff;
 }
 
-/**
- * Perry crypto provider — uses Perry FFI (AES-256-GCM, X25519, HKDF).
- * Only works when compiled with Perry. Falls back to WebCryptoProvider in Bun/Node.
- *
- * Usage from Perry-compiled code:
- *   import { x25519Keypair, x25519SharedSecret, aes256GcmEncrypt, aes256GcmDecrypt, randomNonce, hkdfSha256 } from 'crypto';
- */
-export class PerryCryptoProvider implements CryptoProvider {
-  generateKeyPair(): KeyPair {
-    // In Perry-compiled code, these are FFI calls.
-    // For hone-core (Bun test), this class is only used as a type reference.
-    throw new Error('PerryCryptoProvider requires Perry runtime');
-  }
-
-  deriveSharedKey(mySecret: string, theirPublic: string): string {
-    throw new Error('PerryCryptoProvider requires Perry runtime');
-  }
-
-  encrypt(plaintext: string, key: string): string {
-    throw new Error('PerryCryptoProvider requires Perry runtime');
-  }
-
-  decrypt(ciphertext: string, key: string): string {
-    throw new Error('PerryCryptoProvider requires Perry runtime');
-  }
-}
+// Note: the real Perry/FFI crypto provider (X25519 / AES-256-GCM / HKDF) is the
+// production seam and lives in hone-ide (sync-host.ts). hone-core is Bun-only and
+// ships MockCryptoProvider + WebCryptoProvider; no Perry provider is needed here.
 
 /**
  * Encryption manager — handles key lifecycle and message encryption.

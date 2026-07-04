@@ -11,6 +11,7 @@ export class VertexAdapter implements AIProviderAdapter {
   readonly name = 'Google Vertex AI';
 
   listModels(): AIModelInfo[] {
+    // TODO(verify): confirm current Gemini model ids and context windows.
     return [
       { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Vertex)', contextWindow: 1048576, supportsTools: true, supportsStreaming: true, supportsVision: true },
       { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Vertex)', contextWindow: 1048576, supportsTools: true, supportsStreaming: true, supportsVision: true },
